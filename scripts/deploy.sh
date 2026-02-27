@@ -26,13 +26,44 @@ echo "📁 创建数据目录..."
 mkdir -p data
 mkdir -p logs
 
-# 修改API密钥（提示用户）
+# 检查API密钥是否已修改
 echo ""
-echo "⚠️ 重要：请修改API密钥！"
-echo "请编辑 config/settings.yaml，修改 security.api_key"
-echo "当前使用的是默认密钥，存在安全风险"
+echo "🔐 检查API密钥配置..."
+
+# 读取当前API密钥
+if [ -f "config/settings.yaml" ]; then
+    # 提取api_key值（简单处理YAML）
+    CURRENT_KEY=$(grep -A 1 "^security:" config/settings.yaml | grep "api_key:" | sed 's/.*api_key: *"\?//' | sed 's/"\?$//' | tr -d ' ')
+    
+    if [ "$CURRENT_KEY" = "change-this-to-your-secret-key" ] || [ -z "$CURRENT_KEY" ]; then
+        echo "❌ 错误：你还没有修改API密钥！"
+        echo ""
+        echo "请执行以下步骤："
+        echo "  1. nano config/settings.yaml"
+        echo "  2. 找到 security.api_key"
+        echo "  3. 将 \"change-this-to-your-secret-key\" 改为随机字符串"
+        echo "  4. Ctrl+X → Y → Enter 保存"
+        echo ""
+        echo "示例密钥："
+        echo "  api_key: \"mj30a6vatsAUHWJG3XAv8RIsGi7XvL6cZ2QPXYEo7qJe8JSx\""
+        echo ""
+        read -p "修改完成后按回车键继续，或按 Ctrl+C 退出..."
+        
+        # 再次检查
+        CURRENT_KEY=$(grep -A 1 "^security:" config/settings.yaml | grep "api_key:" | sed 's/.*api_key: *"\?//' | sed 's/"\?$//' | tr -d ' ')
+        if [ "$CURRENT_KEY" = "change-this-to-your-secret-key" ] || [ -z "$CURRENT_KEY" ]; then
+            echo "❌ API密钥仍未修改，部署终止！"
+            exit 1
+        fi
+    fi
+    
+    echo "✅ API密钥已配置"
+else
+    echo "❌ 配置文件不存在：config/settings.yaml"
+    exit 1
+fi
+
 echo ""
-read -p "按回车键继续..."
 
 # 构建镜像
 echo "🔨 构建Docker镜像..."
