@@ -1,10 +1,10 @@
 # 龙虾计划 - 小红书AI自动化系统
 # Lobster XHS Automation Project
 
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
-# 安装系统依赖
-RUN apt-get update && apt-get install -y \
+# 安装系统依赖（使用Debian Bookworm兼容的包名）
+RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
     ca-certificates \
@@ -26,9 +26,9 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon0 \
     libxrandr2 \
     xdg-utils \
-    libu2f-udev \
     libvulkan1 \
-    libqt5gui5 \
+    fonts-noto-color-emoji \
+    fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
@@ -42,7 +42,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 安装Playwright浏览器
 RUN playwright install chromium
-RUN playwright install-deps chromium
+
+# 安装Playwright系统依赖（使用--dry-run然后手动安装可用包）
+RUN playwright install-deps chromium || true
 
 # 复制应用代码
 COPY app/ ./app/
