@@ -1,5 +1,5 @@
 #!/bin/bash
-# 龙虾计划 - Chromium安装脚本
+# 龙虾计划 - Chromium安装脚本（实时输出版）
 # 带进度显示，解决二维码生成问题
 
 set -e
@@ -32,66 +32,71 @@ fi
 echo ""
 
 # 安装Chromium
-echo "📥 开始安装Chromium（约需5-10分钟）..."
+echo "📥 开始安装Chromium（约需3-5分钟）..."
 echo "   下载大小：约100MB"
+echo "   会显示实时进度，请耐心等待..."
 echo ""
 
-# 使用Python安装并显示进度
-docker exec lobster-xhs-bot python3 << 'PYTHON_EOF'
+# 创建安装脚本
+cat > /tmp/install_chromium.py << 'PYTHON_SCRIPT'
 import subprocess
 import sys
-import time
-import threading
+import os
 
-def show_spinner():
-    """显示旋转进度条"""
-    spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-    i = 0
-    while not stop_spinner:
-        print(f"\r⏳ 正在下载... {spinner[i]} ", end='', flush=True)
-        i = (i + 1) % len(spinner)
-        time.sleep(0.1)
-    print("\r✅ 下载完成！   ")
+print("=" * 50)
+print("开始下载并安装Chromium...")
+print("=" * 50)
+print()
 
-# 启动进度条
-stop_spinner = False
-spinner_thread = threading.Thread(target=show_spinner)
-spinner_thread.start()
+# 使用Popen实时显示输出
+process = subprocess.Popen(
+    [sys.executable, "-m", "playwright", "install", "chromium"],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT,
+    universal_newlines=True,
+    bufsize=1
+)
 
-# 执行安装
-try:
-    result = subprocess.run(
-        [sys.executable, "-m", "playwright", "install", "chromium"],
-        capture_output=True,
-        text=True,
-        timeout=600  # 10分钟超时
-    )
-    stop_spinner = True
-    spinner_thread.join()
-    
-    if result.returncode == 0:
-        print("✅ Chromium安装成功！")
-        if result.stdout:
-            print("输出:", result.stdout[-500:] if len(result.stdout) > 500 else result.stdout)
-    else:
-        print("❌ 安装失败！")
-        print("错误输出:", result.stderr)
-        sys.exit(1)
-except subprocess.TimeoutExpired:
-    stop_spinner = True
-    spinner_thread.join()
-    print("❌ 安装超时（超过10分钟）")
+# 实时读取并显示输出
+for line in process.stdout:
+    print(line, end='')
+    sys.stdout.flush()
+
+# 等待进程结束
+process.wait()
+
+print()
+print("=" * 50)
+if process.returncode == 0:
+    print("✅ Chromium安装成功！")
+    print("=" * 50)
+    sys.exit(0)
+else:
+    print(f"❌ 安装失败，退出码: {process.returncode}")
+    print("=" * 50)
     sys.exit(1)
-except Exception as e:
-    stop_spinner = True
-    spinner_thread.join()
-    print(f"❌ 发生错误: {e}")
-    sys.exit(1)
-PYTHON_EOF
+PYTHON_SCRIPT
 
-if [ $? -ne 0 ]; then
+# 复制到容器并执行
+docker cp /tmp/install_chromium.py lobster-xhs-bot:/tmp/
+
+# 执行安装（带超时5分钟）
+echo "⏳ 正在安装（超时时间：5分钟）..."
+echo ""
+
+timeout 300 docker exec lobster-xhs-bot python3 /tmp/install_chromium.py
+
+INSTALL_EXIT=$?
+
+if [ $INSTALL_EXIT -eq 124 ]; then
     echo ""
-    echo "❌ Chromium安装失败"
+    echo "❌ 安装超时（超过5分钟）"
+    echo "可能原因：网络速度慢或下载被中断"
+    echo "建议：检查网络后重试"
+    exit 1
+elif [ $INSTALL_EXIT -ne 0 ]; then
+    echo ""
+    echo "❌ 安装失败"
     exit 1
 fi
 
