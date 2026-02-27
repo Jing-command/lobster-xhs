@@ -24,34 +24,42 @@ import time
 import json
 
 async def login():
-    start = time.time()
+    total_start = time.time()
     browser = None
     
     try:
         # 1. 启动浏览器
         print("🚀 启动浏览器...")
+        step_start = time.time()
         p = await async_playwright().start()
         browser = await p.chromium.launch(
             headless=True,
             args=['--no-sandbox', '--disable-setuid-sandbox']
         )
         page = await browser.new_page(viewport={'width': 1280, 'height': 800})
+        print(f"   启动耗时: {time.time()-step_start:.1f}秒")
         
         # 2. 访问小红书
+        print()
         print("⏳ 访问小红书...")
+        xhs_start = time.time()  # ⏱️ 记录进入小红书的时间
         await page.goto("https://www.xiaohongshu.com", timeout=60000)
-        print("✅ 页面加载完成")
+        print(f"   页面加载: {time.time()-xhs_start:.1f}秒")
         
         # 3. 等待页面渲染（二维码自动出现）
-        print("⏳ 等待二维码...")
+        print("⏳ 等待二维码渲染...")
+        wait_start = time.time()
         await asyncio.sleep(5)
+        print(f"   等待耗时: {time.time()-wait_start:.1f}秒")
         
         # 4. 找二维码图片（174x174像素）
-        print("📸 查找二维码...")
+        print()
+        print("📸 查找并截图二维码...")
+        find_start = time.time()
         qr_found = False
         
         images = await page.query_selector_all('img')
-        print(f"   找到 {len(images)} 个图片")
+        print(f"   扫描到 {len(images)} 个图片")
         
         for i, img in enumerate(images):
             try:
@@ -59,7 +67,7 @@ async def login():
                 # 小红书二维码是174x174
                 if box and 150 <= box['width'] <= 200 and 150 <= box['height'] <= 200:
                     await img.screenshot(path="/app/data/qr_code.png")
-                    print(f"✅ 找到二维码: {int(box['width'])}x{int(box['height'])}")
+                    print(f"   ✅ 找到二维码: {int(box['width'])}x{int(box['height'])}")
                     qr_found = True
                     break
             except:
@@ -71,10 +79,20 @@ async def login():
                 path="/app/data/qr_code.png",
                 clip={'x': 340, 'y': 150, 'width': 600, 'height': 500}
             )
-            print("✅ 已截图中心区域")
+            print("   ✅ 已截图中心区域")
         
-        elapsed = time.time() - start
-        print(f"⏱️  耗时: {elapsed:.1f}秒")
+        # ⏱️ 关键统计：从进入小红书到存储截图的时间
+        qr_capture_time = time.time() - xhs_start
+        total_elapsed = time.time() - total_start
+        
+        print()
+        print("=" * 50)
+        print("⏱️  时间统计")
+        print("=" * 50)
+        print(f"   启动浏览器: {time.time()-total_start-qr_capture_time:.1f}秒")
+        print(f"   ⭐ 进入官网→存储截图: {qr_capture_time:.1f}秒 ⭐")
+        print(f"   总耗时: {total_elapsed:.1f}秒")
+        print("=" * 50)
         print()
         print("=" * 50)
         print("📱 请立即用小红书APP扫码！")
@@ -108,6 +126,8 @@ async def login():
             await asyncio.sleep(5)
         
         # 6. 保存结果
+        total_time = time.time() - total_start
+        
         if logged_in:
             print()
             print("💾 保存Cookie...")
@@ -118,12 +138,18 @@ async def login():
             with open("/app/data/login_status.txt", "w") as f:
                 f.write("logged_in=true\n")
             
-            print(f"✅ 完成！总耗时: {time.time()-start:.1f}秒")
+            print()
+            print("=" * 50)
+            print(f"🎉 登录成功！")
+            print(f"   获取二维码: {qr_capture_time:.1f}秒")
+            print(f"   总耗时: {total_time:.1f}秒")
+            print("=" * 50)
             await browser.close()
             return True
         else:
             print()
-            print("⚠️ 超时未登录，请重试")
+            print(f"⚠️  超时未登录（总耗时: {total_time:.1f}秒）")
+            print("   请重试")
             await browser.close()
             return False
             
@@ -156,6 +182,8 @@ echo "📁 二维码文件:"
 ls -lh /opt/lobster-xhs/data/qr_code.png 2>/dev/null || echo "   生成中，再等10秒..."
 
 echo ""
-echo "📱 请立即扫码！"
+echo "📱 请立即扫码！二维码1分钟后过期"
+echo ""
+echo "⏱️  目标: 进入官网→存储截图 < 30秒"
 echo ""
 echo "查看状态: docker exec lobster-xhs-bot cat /app/data/login_status.txt"
