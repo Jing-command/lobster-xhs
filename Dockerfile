@@ -43,8 +43,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 安装Playwright浏览器
 RUN playwright install chromium
 
-# 安装Playwright系统依赖（使用--dry-run然后手动安装可用包）
-RUN playwright install-deps chromium || true
+# 安装Playwright系统依赖
+RUN playwright install-deps chromium
 
 # 复制应用代码
 COPY app/ ./app/
