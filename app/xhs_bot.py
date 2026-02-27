@@ -73,7 +73,7 @@ class XHSBot:
         await self.init_browser()
         
         try:
-            await self.page.goto("https://www.xiaohongshu.com", timeout=60000)
+            await self.page.goto("https://www.xiaohongshu.com", timeout=120000)
             await asyncio.sleep(3)
             
             # 检查是否有用户头像或用户名元素
@@ -110,7 +110,7 @@ class XHSBot:
         await self.init_browser()
         
         try:
-            await self.page.goto("https://www.xiaohongshu.com", timeout=60000)
+            await self.page.goto("https://www.xiaohongshu.com", timeout=120000)
             await asyncio.sleep(2)
             
             # 点击登录按钮（如果需要）
@@ -120,7 +120,7 @@ class XHSBot:
                 await asyncio.sleep(2)
             
             # 等待二维码加载（增加超时到60秒）
-            await self.page.wait_for_selector('img.qr-code, .qrcode img, canvas', timeout=60000)
+            await self.page.wait_for_selector('img.qr-code, .qrcode img, canvas', timeout=120000)
             
             # 获取二维码图片
             qr_element = await self.page.query_selector('img.qr-code, .qrcode img')
