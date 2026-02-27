@@ -1,6 +1,6 @@
 #!/bin/bash
 # 龙虾计划 - 一键部署脚本
-# Lobster XHS Deployment Script
+# Lobster XHS Automation Deployment Script
 
 set -e
 
@@ -8,13 +8,13 @@ echo "🦞 龙虾计划部署脚本"
 echo "===================="
 
 # 检查Docker
-if ! command -v docker &> /dev/null; then
+if ! command -v docker >/dev/null 2>&1; then
     echo "❌ 未检测到Docker，请先安装Docker"
     echo "安装指南: https://docs.docker.com/get-docker/"
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker-compose >/dev/null 2>&1; then
     echo "❌ 未检测到docker-compose，请先安装"
     exit 1
 fi
@@ -32,10 +32,11 @@ echo "🔐 检查API密钥配置..."
 
 # 读取当前API密钥
 if [ -f "config/settings.yaml" ]; then
-    # 提取api_key值（简单处理YAML）
-    CURRENT_KEY=$(grep -A 1 "^security:" config/settings.yaml | grep "api_key:" | sed 's/.*api_key: *"\?//' | sed 's/"\?$//' | tr -d ' ')
+    # 提取api_key值
+    CURRENT_KEY=$(cat config/settings.yaml | grep "api_key:" | head -1 | sed 's/.*api_key:[ ]*//' | sed 's/"//g' | tr -d ' ')
     
     if [ "$CURRENT_KEY" = "change-this-to-your-secret-key" ] || [ -z "$CURRENT_KEY" ]; then
+        echo ""
         echo "❌ 错误：你还没有修改API密钥！"
         echo ""
         echo "请执行以下步骤："
@@ -50,7 +51,7 @@ if [ -f "config/settings.yaml" ]; then
         read -p "修改完成后按回车键继续，或按 Ctrl+C 退出..."
         
         # 再次检查
-        CURRENT_KEY=$(grep -A 1 "^security:" config/settings.yaml | grep "api_key:" | sed 's/.*api_key: *"\?//' | sed 's/"\?$//' | tr -d ' ')
+        CURRENT_KEY=$(cat config/settings.yaml | grep "api_key:" | head -1 | sed 's/.*api_key:[ ]*//' | sed 's/"//g' | tr -d ' ')
         if [ "$CURRENT_KEY" = "change-this-to-your-secret-key" ] || [ -z "$CURRENT_KEY" ]; then
             echo "❌ API密钥仍未修改，部署终止！"
             exit 1
