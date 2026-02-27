@@ -106,51 +106,86 @@ class XHSBot:
             return False
     
     async def get_login_qr(self) -> Dict[str, str]:
-        """获取登录二维码"""
+        """获取登录二维码 - 优化版"""
         await self.init_browser()
         
         try:
+            print("🌐 访问小红书...")
             await self.page.goto("https://www.xiaohongshu.com", timeout=120000)
-            await asyncio.sleep(2)
             
-            # 点击登录按钮（如果需要）
-            login_btn = await self.page.query_selector('.login-btn, .login-entry')
-            if login_btn:
-                await login_btn.click()
-                await asyncio.sleep(2)
+            # 等待页面完全加载
+            print("⏳ 等待页面加载...")
+            await asyncio.sleep(5)
             
-            # 等待二维码加载（增加超时到60秒）
-            await self.page.wait_for_selector('img.qr-code, .qrcode img, canvas', timeout=120000)
+            # 先截图看看页面状态
+            await self.page.screenshot(path='/app/data/page_loaded.png')
+            print("📸 页面截图已保存")
             
-            # 获取二维码图片
-            qr_element = await self.page.query_selector('img.qr-code, .qrcode img')
+            # 尝试多种方式找到二维码
+            qr_selectors = [
+                'img.qr-code',
+                '.qrcode img',
+                '.login-qrcode img',
+                '[class*="qr"] img',
+                '[class*="login"] img',
+                'canvas',
+            ]
+            
+            qr_element = None
+            for selector in qr_selectors:
+                try:
+                    print(f"🔍 尝试: {selector}")
+                    qr_element = await self.page.wait_for_selector(selector, timeout=8000)
+                    if qr_element:
+                        print(f"✅ 找到: {selector}")
+                        break
+                except:
+                    continue
+            
+            # 如果没找到，尝试点击登录按钮
+            if not qr_element:
+                print("⏳ 点击登录按钮...")
+                login_selectors = ['.login-btn', '.login-entry', '[class*="login"]']
+                
+                for selector in login_selectors:
+                    try:
+                        login_btn = await self.page.wait_for_selector(selector, timeout=5000)
+                        if login_btn:
+                            await login_btn.click()
+                            print(f"✅ 点击: {selector}")
+                            await asyncio.sleep(3)
+                            break
+                    except:
+                        continue
+                
+                # 再次尝试找二维码
+                for selector in qr_selectors:
+                    try:
+                        qr_element = await self.page.wait_for_selector(selector, timeout=15000)
+                        if qr_element:
+                            print(f"✅ 找到: {selector}")
+                            break
+                    except:
+                        continue
             
             if qr_element:
+                await asyncio.sleep(2)
                 qr_src = await qr_element.get_attribute('src')
                 
-                # 生成base64图片用于显示
                 if qr_src and qr_src.startswith('data:image'):
                     base64_data = qr_src.split(',')[1]
-                    return {
-                        "url": qr_src,
-                        "base64": base64_data
-                    }
+                    print("✅ 获取Base64二维码")
+                    return {"url": qr_src, "base64": base64_data}
+                else:
+                    screenshot = await qr_element.screenshot()
+                    base64_data = base64.b64encode(screenshot).decode()
+                    print("✅ 截图二维码")
+                    return {"url": None, "base64": base64_data}
             
-            # 备用方案：截图二维码区域
-            qr_container = await self.page.query_selector('.qrcode, .qr-code-container')
-            if qr_container:
-                screenshot = await qr_container.screenshot()
-                base64_data = base64.b64encode(screenshot).decode()
-                return {
-                    "url": None,
-                    "base64": base64_data
-                }
-            
-            raise Exception("无法获取二维码")
+            raise Exception("未找到二维码")
             
         except Exception as e:
-            print(f"获取二维码出错: {e}")
-            # 截图保存供调试
+            print(f"❌ 错误: {e}")
             if self.page:
                 await self.page.screenshot(path='/app/data/qr_error.png')
             raise
