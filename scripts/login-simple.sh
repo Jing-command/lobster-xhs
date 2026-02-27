@@ -1,5 +1,5 @@
 #!/bin/bash
-# 龙虾计划 - 精简版登录流程（带时间统计和倒计时）
+# 龙虾计划 - 精简版登录流程（带正计时）
 
 echo "🦞 龙虾计划 - 精简登录流程"
 echo "==========================="
@@ -21,14 +21,13 @@ from playwright.async_api import async_playwright
 import os
 import time
 import json
-import sys
 
-async def countdown(seconds, message):
-    """倒计时显示"""
-    for i in range(seconds, 0, -1):
-        print(f"\r   {message}: {i}秒", end='', flush=True)
-        await asyncio.sleep(1)
-    print(f"\r   {message}: 完成!    ")
+async def timer_display(start_time, message):
+    """正计时显示"""
+    while True:
+        elapsed = time.time() - start_time
+        print(f"\r   {message}: {elapsed:.1f}秒", end='', flush=True)
+        await asyncio.sleep(0.5)
 
 async def login():
     total_start = time.time()
@@ -45,7 +44,7 @@ async def login():
         )
         page = await browser.new_page(viewport={'width': 1280, 'height': 800})
         browser_time = time.time() - step_start
-        print(f"   ✅ 启动耗时: {browser_time:.1f}秒")
+        print(f"\r   ✅ 启动耗时: {browser_time:.1f}秒    ")
         
         # 2. 访问小红书
         print()
@@ -55,10 +54,13 @@ async def login():
         load_time = time.time() - xhs_start
         print(f"   ✅ 页面加载: {load_time:.1f}秒")
         
-        # 3. 等待二维码出现（带倒计时）
+        # 3. 等待二维码出现（计时）
         print()
         print("⏳ 等待二维码渲染...")
-        await countdown(5, "等待")
+        wait_start = time.time()
+        await asyncio.sleep(5)
+        wait_time = time.time() - wait_start
+        print(f"   ✅ 等待完成: {wait_time:.1f}秒")
         
         # 4. 查找并截图二维码
         print()
@@ -99,7 +101,8 @@ async def login():
         print("=" * 50)
         print(f"   启动浏览器:      {browser_time:.1f}秒")
         print(f"   页面加载:        {load_time:.1f}秒")
-        print(f"   查找二维码:      {find_time:.1f}秒")
+        print(f"   等待渲染:        {wait_time:.1f}秒")
+        print(f"   查找截图:        {find_time:.1f}秒")
         print(f"   ─────────────────────")
         print(f"   ⭐ 官网→截图:    {qr_total_time:.1f}秒 ⭐")
         print(f"   总耗时:          {total_elapsed:.1f}秒")
@@ -111,22 +114,22 @@ async def login():
             print("   ⚠️  超时！官网→截图 > 30秒")
         print()
         
-        # 5. 等待扫码（带倒计时）
+        # 5. 等待扫码（计时）
         print("=" * 50)
         print("📱 请立即用小红书APP扫码！")
         print("=" * 50)
         print()
-        print("⏳ 等待扫码，倒计时：")
+        print("⏱️  等待扫码计时中...")
         
         logged_in = False
+        scan_start = time.time()
         max_wait = 180  # 3分钟
         
-        for remaining in range(max_wait, 0, -1):
-            # 每秒检查一次登录状态
-            if remaining % 5 == 0:  # 每5秒显示倒计时
-                mins = remaining // 60
-                secs = remaining % 60
-                print(f"\r   剩余时间: {mins:02d}:{secs:02d}", end='', flush=True)
+        while time.time() - scan_start < max_wait:
+            elapsed = time.time() - scan_start
+            mins = int(elapsed) // 60
+            secs = int(elapsed) % 60
+            print(f"\r   已等待: {mins:02d}:{secs:02d}", end='', flush=True)
             
             # 检查是否登录
             try:
@@ -144,8 +147,10 @@ async def login():
             
             await asyncio.sleep(1)
         
+        scan_time = time.time() - scan_start
+        
         if not logged_in:
-            print(f"\r   ⚠️  超时未登录{' '*20}")
+            print(f"\r   ⚠️  等待超时 ({scan_time:.0f}秒){' '*10}")
         
         # 6. 保存结果
         print()
@@ -157,12 +162,16 @@ async def login():
             
             with open("/app/data/login_status.txt", "w") as f:
                 f.write("logged_in=true\n")
-                f.write(f"qr_time={qr_total_time:.1f}s\n")
+                f.write(f"qr_capture_time={qr_total_time:.1f}s\n")
+                f.write(f"scan_time={scan_time:.1f}s\n")
                 f.write(f"total_time={time.time()-total_start:.1f}s\n")
             
             await browser.close()
             print()
+            print("=" * 50)
             print("🎉 登录流程完成！")
+            print(f"   扫码耗时: {scan_time:.1f}秒")
+            print("=" * 50)
             return True
         else:
             await browser.close()
@@ -181,7 +190,6 @@ PYEOF
 docker cp /tmp/login_simple.py lobster-xhs-bot:/tmp/
 
 echo "2️⃣ 启动登录流程..."
-echo "   预计40秒生成二维码，然后3分钟倒计时等待扫码"
 echo ""
 
 # 后台运行
@@ -190,10 +198,10 @@ docker exec -d lobster-xhs-bot python3 /tmp/login_simple.py
 echo "✅ 已启动！等待生成二维码..."
 echo ""
 
-# 等待进度显示
+# 等待并显示进度
 for i in {10..50..10}; do
     sleep 10
-    echo "   已等待 ${i}秒..."
+    echo "   已进行 ${i}秒..."
 done
 
 # 复制到宿主机
@@ -206,7 +214,5 @@ ls -lh /opt/lobster-xhs/data/qr_code.png 2>/dev/null || echo "   还在生成中
 echo ""
 echo "📱 请立即扫码！二维码1分钟后过期"
 echo ""
-echo "⏱️  目标: 进入官网→存储截图 ≤ 30秒"
-echo ""
 echo "查看实时进度:"
-echo "   docker logs -f lobster-xhs-bot 2>&1 | grep -E '(时间统计|剩余时间|登录成功)'"
+echo "   docker logs -f lobster-xhs-bot"
