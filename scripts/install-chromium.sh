@@ -102,9 +102,12 @@ fi
 
 echo ""
 echo "🔍 验证安装结果..."
-if docker exec lobster-xhs-bot ls /root/.cache/ms-playwright/chromium-*/chrome-linux/chrome >/dev/null 2>&1; then
+# 使用find查找chrome可执行文件
+CHROME_PATH=$(docker exec lobster-xhs-bot bash -c "find /root/.cache/ms-playwright -name 'chrome' -type f 2>/dev/null | head -1")
+if [ -n "$CHROME_PATH" ]; then
     echo "✅ Chromium验证成功！"
-    docker exec lobster-xhs-bot ls -lh /root/.cache/ms-playwright/chromium-*/chrome-linux/chrome
+    echo "路径: $CHROME_PATH"
+    docker exec lobster-xhs-bot ls -lh "$CHROME_PATH"
     echo ""
     echo "🎉 安装完成！"
     echo ""
