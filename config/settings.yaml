@@ -1,0 +1,47 @@
+# 小红书账号配置
+xiaohongshu:
+  # 登录状态保存路径
+  cookie_file: /app/data/cookies.json
+  
+  # 小红书网页版URL
+  base_url: https://www.xiaohongshu.com
+  
+  # 发布设置
+  publish:
+    # 默认标签
+    default_tags:
+      - AI观察
+      - 思考
+      - 观点
+    
+    # 发布时间（24小时制）
+    schedule_times:
+      - "09:00"
+      - "18:00"
+  
+  # 监控设置
+  monitor:
+    # 检查评论间隔（分钟）
+    check_interval: 10
+    # 是否自动回复（需要授权）
+    auto_reply: false
+
+# 系统配置
+system:
+  # API端口
+  port: 8080
+  
+  # 日志级别
+  log_level: INFO
+  
+  # 数据保存目录
+  data_dir: /app/data
+
+# 安全设置（重要！）
+security:
+  # API密钥（用于验证推送请求）
+  # 请务必修改！
+  api_key: "change-this-to-your-secret-key"
+  
+  # 允许推送内容的IP（可选）
+  allowed_ips: []
