@@ -121,14 +121,16 @@ class XHSBot:
             await self.page.screenshot(path='/app/data/page_loaded.png')
             print("📸 页面截图已保存")
             
-            # 尝试多种方式找到二维码
+            # 尝试多种方式找到二维码（根据实际页面结构）
             qr_selectors = [
-                'img.qr-code',
+                '.login-modal img',           # 登录弹窗里的图片
+                '.login-container img',       # 登录容器
+                'img[src*="qr"]',            # 包含qr的图片
+                'img[alt*="二维码"]',         # alt包含二维码
                 '.qrcode img',
                 '.login-qrcode img',
-                '[class*="qr"] img',
-                '[class*="login"] img',
-                'canvas',
+                'canvas',                     # canvas元素
+                'img',                        # 所有图片（最后尝试）
             ]
             
             qr_element = None
