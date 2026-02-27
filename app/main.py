@@ -13,8 +13,9 @@ from typing import Optional
 import uvicorn
 import yaml
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from pydantic import BaseModel
+import base64
 
 from .xhs_bot import XHSBot
 from .content_queue import ContentQueue
@@ -109,15 +110,48 @@ async def get_qr_code():
     
     try:
         qr_data = await bot.get_login_qr()
+        # 保存二维码图片到文件
+        if qr_data.get("base64"):
+            img_data = base64.b64decode(qr_data["base64"])
+            qr_path = "/app/data/qr_code.png"
+            with open(qr_path, "wb") as f:
+                f.write(img_data)
         return {
             "success": True,
             "qr_url": qr_data.get("url"),
             "qr_base64": qr_data.get("base64"),
             "expire_seconds": 180,
-            "message": "请使用小红书APP扫码登录"
+            "message": "请使用小红书APP扫码登录，或访问 /qr-image 查看图片"
         }
     except Exception as e:
         raise HTTPException(500, f"获取二维码失败: {str(e)}")
+
+
+@app.get("/qr-image")
+async def get_qr_image():
+    """
+    获取登录二维码图片文件
+    直接返回PNG图片，方便无图形界面服务器使用
+    """
+    qr_path = "/app/data/qr_code.png"
+    
+    # 如果文件不存在，尝试重新生成
+    if not os.path.exists(qr_path):
+        if not bot:
+            raise HTTPException(500, "系统未初始化")
+        try:
+            qr_data = await bot.get_login_qr()
+            if qr_data.get("base64"):
+                img_data = base64.b64decode(qr_data["base64"])
+                with open(qr_path, "wb") as f:
+                    f.write(img_data)
+        except Exception as e:
+            raise HTTPException(500, f"生成二维码失败: {str(e)}")
+    
+    if os.path.exists(qr_path):
+        return FileResponse(qr_path, media_type="image/png", filename="qr_code.png")
+    else:
+        raise HTTPException(404, "二维码图片不存在")
 
 
 @app.get("/login/status")
